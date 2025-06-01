@@ -1,0 +1,31 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.13.35919.96
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MyApi", "12\MyApi.csproj", "{AD32A721-109F-4571-AF1C-68382720F237}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MyBot", "MyBot\MyBot.csproj", "{AD4E60DD-4C85-425F-BF1B-0987AAA67C41}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{AD32A721-109F-4571-AF1C-68382720F237}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{AD32A721-109F-4571-AF1C-68382720F237}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{AD32A721-109F-4571-AF1C-68382720F237}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{AD32A721-109F-4571-AF1C-68382720F237}.Release|Any CPU.Build.0 = Release|Any CPU
+		{AD4E60DD-4C85-425F-BF1B-0987AAA67C41}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{AD4E60DD-4C85-425F-BF1B-0987AAA67C41}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{AD4E60DD-4C85-425F-BF1B-0987AAA67C41}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{AD4E60DD-4C85-425F-BF1B-0987AAA67C41}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {12B87959-C53B-490F-BDEC-3473178D7B95}
+	EndGlobalSection
+EndGlobal
