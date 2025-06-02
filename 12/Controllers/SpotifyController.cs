@@ -59,10 +59,7 @@ namespace MyApi.Controllers
         }
 
         [HttpGet("search/{userId:long}")]
-        public async Task<IActionResult> Search(
-    [FromServices] DatabaseService db,
-    long userId,
-    [FromQuery] string query)
+        public async Task<IActionResult> Search( [FromServices] DatabaseService db, long userId, [FromQuery] string query)
         {
             db.SaveSearch(userId, query); // збереження пошуку
             var result = await _spotify.SearchTracksAsync(userId, query);
@@ -70,7 +67,7 @@ namespace MyApi.Controllers
         }
 
         [HttpGet("search/forplaylist/{userId:long}")]
-public async Task<IActionResult> SearchForPlaylist(long userId, [FromQuery] string query, [FromQuery] int limit = 5)
+        public async Task<IActionResult> SearchForPlaylist(long userId, [FromQuery] string query, [FromQuery] int limit = 5)
 {
     var json = await _spotify.RawSearchTracksAsync(userId, query, limit);
 
@@ -94,6 +91,12 @@ public async Task<IActionResult> SearchForPlaylist(long userId, [FromQuery] stri
     return Ok(result);
 }
 
+        [HttpGet("playlists/{userId:long}/{playlistId}/tracks")]
+        public async Task<IActionResult> GetPlaylistTracks(long userId, string playlistId)
+        {
+            var result = await _spotify.GetTracksInPlaylistAsync(userId, playlistId);
+            return Ok(result);
+        }
 
         [HttpGet("playlists/{userId:long}")]
         public async Task<IActionResult> GetPlaylists(long userId)

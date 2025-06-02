@@ -305,7 +305,26 @@ namespace MyApi.Services
             return "🗑️ Плейлист видалено з бібліотеки!";
         }
 
+        public async Task<List<string>> GetTracksInPlaylistAsync(long userId, string playlistId)
+        {
+            var json = await MakeSpotifyRequestAsync(userId, $"/playlists/{playlistId}/tracks?limit=100");
+            if (json == null) return new List<string>();
 
+            var root = JsonDocument.Parse(json).RootElement;
+            if (!root.TryGetProperty("items", out var items) || items.GetArrayLength() == 0)
+                return new List<string>();
+
+            var result = new List<string>();
+            foreach (var item in items.EnumerateArray())
+            {
+                if (!item.TryGetProperty("track", out var track)) continue;
+                var name = track.GetProperty("name").GetString();
+                var artist = track.GetProperty("artists")[0].GetProperty("name").GetString();
+                result.Add($"{name} - {artist}");
+            }
+
+            return result;
+        }
 
 
         public void Dispose()

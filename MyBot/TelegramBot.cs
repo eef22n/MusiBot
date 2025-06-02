@@ -23,6 +23,8 @@ namespace MyBot
         private readonly Dictionary<long, bool> _userCreatePlaylistState = new();
         private readonly Dictionary<long, string> _userSearchState = new();
         private readonly Dictionary<long, (string TrackId, string Name, string Artist)> _userPendingRatings = new();
+        private readonly Dictionary<long, (string PlaylistId, int Page)> _userPlaylistPage = new();
+
         public TelegramBot(HttpClient httpClient)
         {
             _httpClient = httpClient;
@@ -90,16 +92,7 @@ namespace MyBot
                 case "/auth":
                     await StartAuth(chatId, userId, token);
                     break;
-                case "/playlists":
-                    await ShowPlaylists(chatId, userId, token);
-                    break;
-                case "/createplaylist":
-                    await AskNewPlaylistName(chatId, userId, token);
-                    break;
-                case "/ratings":
-                    await ShowRatings(chatId, userId, token);
-                    break;
-
+               
                 default:
                     await bot.SendMessage(chatId, "Невідома команда. Натисни /menu.", cancellationToken: token);
                     break;
@@ -202,6 +195,9 @@ namespace MyBot
                         }
                         break;
                     }
+                case "ratings":
+                    await ShowRatings(chatId, userId, token);
+                    break;
 
                 default:
                     // Дії з плейлистами
@@ -220,6 +216,52 @@ namespace MyBot
                         var playlistId = data.Substring("addtr_".Length);
                         await AskTrackToAdd(chatId, userId, playlistId, token);
                     }
+                    else if (data.StartsWith("viewpl_"))
+                    {
+                        var parts = data.Substring("viewpl_".Length).Split(':');
+                        var playlistId = parts[0];
+                        int page = parts.Length > 1 && int.TryParse(parts[1], out var p) ? p : 0;
+
+                        _userPlaylistPage[userId] = (playlistId, page);
+
+                        var response = await _httpClient.GetAsync($"{_apiBaseUrl}/spotify/playlists/{userId}/{playlistId}/tracks");
+                        var json = await response.Content.ReadAsStringAsync();
+
+                        if (!json.Trim().StartsWith("["))
+                        {
+                            await _botClient.SendMessage(chatId, "Не вдалося завантажити треки.", cancellationToken: token);
+                            return;
+                        }
+
+                        var tracks = JsonSerializer.Deserialize<List<string>>(json);
+                        if (tracks == null || tracks.Count == 0)
+                        {
+                            await _botClient.SendMessage(chatId, "Плейлист порожній.", cancellationToken: token);
+                            return;
+                        }
+
+                        int pageSize = 5;
+                        int totalPages = (int)Math.Ceiling((double)tracks.Count / pageSize);
+                        page = Math.Clamp(page, 0, totalPages - 1);
+
+                        var trackPage = tracks.Skip(page * pageSize).Take(pageSize).ToList();
+                        string message = $"🎶 Треки (сторінка {page + 1}/{totalPages}):\n\n" + string.Join("\n", trackPage);
+
+                        var navButtons = new List<InlineKeyboardButton[]>();
+                        var navRow = new List<InlineKeyboardButton>();
+
+                        if (page > 0)
+                            navRow.Add(InlineKeyboardButton.WithCallbackData("◀️ Назад", $"viewpl_{playlistId}:{page - 1}"));
+                        if (page < totalPages - 1)
+                            navRow.Add(InlineKeyboardButton.WithCallbackData("Вперед ▶️", $"viewpl_{playlistId}:{page + 1}"));
+
+                        if (navRow.Count > 0)
+                            navButtons.Add(navRow.ToArray());
+
+                        var markup = navButtons.Count > 0 ? new InlineKeyboardMarkup(navButtons) : null;
+                        await _botClient.SendMessage(chatId, message, replyMarkup: markup, cancellationToken: token);
+                    }
+
                     else if (data.StartsWith("addtrk_"))
                     {
                         // addtrk_{playlistId}_{trackId}
@@ -265,6 +307,7 @@ namespace MyBot
                 new[] { InlineKeyboardButton.WithCallbackData("▶️ Зараз грає", "currently_playing") },
                 new[] { InlineKeyboardButton.WithCallbackData("🕒 Останні треки", "recently_played") },
                 new[] { InlineKeyboardButton.WithCallbackData("🔍 Пошук", "search") },
+                 new[] { InlineKeyboardButton.WithCallbackData("⭐️ Переглянути оцінки", "ratings") },
                 new[] { InlineKeyboardButton.WithCallbackData("📂 Плейлисти", "show_playlists") },
                 new[] { InlineKeyboardButton.WithCallbackData("➕ Створити плейлист", "create_playlist") },
                 new[] { InlineKeyboardButton.WithCallbackData("🔐 Авторизація", "auth") }
@@ -348,8 +391,9 @@ namespace MyBot
 
             var keyboard = new InlineKeyboardMarkup(new[]
             {
-                new[] { InlineKeyboardButton.WithCallbackData("🗑️ Видалити", $"delpl_{playlistId}") },
-                new[] { InlineKeyboardButton.WithCallbackData("➕ Додати трек", $"addtr_{playlistId}") }
+                new[] { InlineKeyboardButton.WithCallbackData("🎶 Переглянути треки", $"viewpl_{playlistId}:0") },
+                new[] { InlineKeyboardButton.WithCallbackData("➕ Додати трек", $"addtr_{playlistId}") },
+                new[] { InlineKeyboardButton.WithCallbackData("🗑️ Видалити Плейліст", $"delpl_{playlistId}") }
             });
             await _botClient.SendMessage(chatId, $"Обери дію для \"{plName}\":", replyMarkup: keyboard, cancellationToken: token);
         }
