@@ -22,7 +22,7 @@ namespace MyBot
         private readonly Dictionary<long, string> _userAddTrackPlaylist = new();
         private readonly Dictionary<long, bool> _userCreatePlaylistState = new();
         private readonly Dictionary<long, string> _userSearchState = new();
-
+        private readonly Dictionary<long, (string TrackId, string Name, string Artist)> _userPendingRatings = new();
         public TelegramBot(HttpClient httpClient)
         {
             _httpClient = httpClient;
@@ -96,6 +96,10 @@ namespace MyBot
                 case "/createplaylist":
                     await AskNewPlaylistName(chatId, userId, token);
                     break;
+                case "/ratings":
+                    await ShowRatings(chatId, userId, token);
+                    break;
+
                 default:
                     await bot.SendMessage(chatId, "Невідома команда. Натисни /menu.", cancellationToken: token);
                     break;
@@ -122,8 +126,50 @@ namespace MyBot
                     await SendApiResult(chatId, $"spotify/top-tracks/{userId}", token);
                     break;
                 case "currently_playing":
-                    await SendApiResult(chatId, $"spotify/currently-playing/{userId}", token);
-                    break;
+                    {
+                        var response = await _httpClient.GetAsync($"{_apiBaseUrl}/spotify/currently-playing/{userId}");
+                        var text = await response.Content.ReadAsStringAsync();
+
+                        if (text.StartsWith("▶️") || text.StartsWith("⏸️"))
+                        {
+                            // Парсимо назву та артиста
+                            var lines = text.Split('\n');
+                            if (lines.Length >= 2)
+                            {
+                                var trackLine = lines[1]; // 🎵 Name - Artist
+                                var parts = trackLine.Replace("🎵 ", "").Split(" - ");
+                                if (parts.Length == 2)
+                                {
+                                    string name = parts[0].Trim();
+                                    string artist = parts[1].Trim();
+
+                                    // Отримаємо трек ID через search
+                                    var searchResp = await _httpClient.GetAsync($"{_apiBaseUrl}/spotify/search/forplaylist/{userId}?query={Uri.EscapeDataString(name + " " + artist)}");
+                                    var searchJson = await searchResp.Content.ReadAsStringAsync();
+                                    var tracks = JsonSerializer.Deserialize<List<TrackSearchResult>>(searchJson);
+                                    Console.WriteLine($"🎯 Пошук треку для оцінки: {trackLine}");
+                                    Console.WriteLine($"🔍 Отримано {tracks?.Count ?? 0} результатів");
+                                    if (tracks?.Count > 0)
+                                    {
+                                        var track = tracks[0];
+                                        _userPendingRatings[userId] = (track.id, track.name, track.artist);
+
+                                        var ratingKeyboard = new InlineKeyboardMarkup(new[]
+                                        {
+                        new[] { InlineKeyboardButton.WithCallbackData("⭐ Оцінити трек", "rate_now") }
+                    });
+
+                                        await _botClient.SendMessage(chatId, text, replyMarkup: ratingKeyboard, cancellationToken: token);
+                                        break;
+                                    }
+                                }
+                            }
+                        }
+
+                        // fallback — просто текст
+                        await _botClient.SendMessage(chatId, text, cancellationToken: token);
+                        break;
+                    }
                 case "recently_played":
                     await SendApiResult(chatId, $"spotify/recently-played/{userId}", token);
                     break;
@@ -137,6 +183,26 @@ namespace MyBot
                 case "create_playlist":
                     await AskNewPlaylistName(chatId, userId, token);
                     break;
+                case "rate_now":
+                    {
+                        if (_userPendingRatings.TryGetValue(userId, out var track))
+                        {
+                            var ratingButtons = Enumerable.Range(1, 10)
+                                .Select(i => InlineKeyboardButton.WithCallbackData(i.ToString(), $"rate_{i}"))
+                                .Chunk(5) // 2 рядки по 5 кнопок
+                                .Select(row => row.ToArray())
+                                .ToArray();
+
+                            var markup = new InlineKeyboardMarkup(ratingButtons);
+                            await _botClient.SendMessage(chatId, $"Оціни трек:\n🎵 {track.Name} - {track.Artist}", replyMarkup: markup, cancellationToken: token);
+                        }
+                        else
+                        {
+                            await _botClient.SendMessage(chatId, "Немає треку для оцінки.", cancellationToken: token);
+                        }
+                        break;
+                    }
+
                 default:
                     // Дії з плейлистами
                     if (data.StartsWith("pl_"))
@@ -164,6 +230,26 @@ namespace MyBot
                             var playlistId = parts[0];
                             var trackId = parts[1];
                             await AddTrackToPlaylistById(chatId, userId, playlistId, trackId, token);
+                        }
+                    }
+                    //обробка оцінки
+                    else if (data.StartsWith("rate_"))
+                    {
+                        if (int.TryParse(data.Substring(5), out int rating) &&
+                            _userPendingRatings.TryGetValue(userId, out var track))
+                        {
+                            var saveResp = await _httpClient.PostAsync(
+                                $"{_apiBaseUrl}/db/save-rating/{userId}?trackId={track.TrackId}&trackName={Uri.EscapeDataString(track.Name)}&artist={Uri.EscapeDataString(track.Artist)}&rating={rating}", null);
+
+                            var text = saveResp.IsSuccessStatusCode
+                                ? $"✅ Оцінено \"{track.Name}\" на {rating}/10"
+                                : "❌ Не вдалося зберегти оцінку.";
+
+                            await _botClient.SendMessage(chatId, text, cancellationToken: token);
+                        }
+                        else
+                        {
+                            await _botClient.SendMessage(chatId, "Невірне значення або немає треку для оцінки.", cancellationToken: token);
                         }
                     }
                     break;
@@ -201,6 +287,28 @@ namespace MyBot
             var result = await response.Content.ReadAsStringAsync();
             await _botClient.SendMessage(chatId, result, cancellationToken: token);
         }
+        private async Task ShowRatings(long chatId, long userId, CancellationToken token)
+        {
+            var response = await _httpClient.GetAsync($"{_apiBaseUrl}/db/ratings/{userId}");
+            var json = await response.Content.ReadAsStringAsync();
+
+            if (!json.Trim().StartsWith("["))
+            {
+                await _botClient.SendMessage(chatId, "Не вдалося отримати оцінки.", cancellationToken: token);
+                return;
+            }
+
+            var ratings = JsonSerializer.Deserialize<List<string>>(json);
+            if (ratings == null || ratings.Count == 0)
+            {
+                await _botClient.SendMessage(chatId, "У вас ще немає оцінених треків.", cancellationToken: token);
+                return;
+            }
+
+            string message = "🎧 Ваші останні оцінки:\n\n" + string.Join("\n", ratings);
+            await _botClient.SendMessage(chatId, message, cancellationToken: token);
+        }
+
 
         // ==== Блок плейлистів з кнопками ====
 

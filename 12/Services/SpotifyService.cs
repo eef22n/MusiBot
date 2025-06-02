@@ -18,7 +18,7 @@ namespace MyApi.Services
     {
         private readonly string clientId = "0e2a75f00d844860b354812f4d235613";
         private readonly string clientSecret = "48d9461f0b5d4602894324f6e9574fe7";
-        private readonly string redirectUri = "https://b427-93-170-70-241.ngrok-free.app/callback"; 
+        private readonly string redirectUri = "https://cd32-93-170-70-241.ngrok-free.app/callback"; 
         private readonly HttpClient httpClient = new();
 
         private readonly Dictionary<long, SpotifyTokenData> userTokens = new();

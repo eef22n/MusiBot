@@ -28,5 +28,27 @@ namespace MyApi.Controllers
             var history = _database.GetUserSearchHistory(userId);
             return Ok(history);
         }
+
+        [HttpGet("ratings/{userId:long}")]
+        public IActionResult GetRatings(long userId)
+        {
+            var ratings = _database.GetUserRatings(userId);
+            return Ok(ratings);
+        }
+
+        [HttpPost("save-rating/{userId:long}")]
+        public IActionResult SaveRating(
+    long userId,
+    [FromQuery] string trackId,
+    [FromQuery] string trackName,
+    [FromQuery] string artist,
+    [FromQuery] int rating)
+        {
+            if (rating < 1 || rating > 10)
+                return BadRequest("Оцінка має бути від 1 до 10.");
+
+            _database.SaveRating(userId, trackId, trackName, artist, rating);
+            return Ok("Оцінку збережено");
+        }
     }
 }
