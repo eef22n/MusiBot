@@ -5,8 +5,8 @@ EXPOSE 80
 FROM mcr.microsoft.com/dotnet/sdk:8.0 AS build
 WORKDIR /src
 COPY . .
-RUN dotnet restore MyBot/12/12.csproj
-RUN dotnet publish MyBot/12/12.csproj -c Release -o /app/publish
+RUN dotnet restore MyBot/12/MyApi.csproj
+RUN dotnet publish MyBot/12/MyApi.csproj -c Release -o /app/publish
 
 FROM base AS final
 WORKDIR /app
