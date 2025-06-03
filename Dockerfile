@@ -5,10 +5,10 @@ EXPOSE 80
 FROM mcr.microsoft.com/dotnet/sdk:8.0 AS build
 WORKDIR /src
 COPY . .
-RUN dotnet restore MyApi/MyApi.csproj
-RUN dotnet publish MyApi/MyApi.csproj -c Release -o /app/publish
+RUN dotnet restore MyBot/12/12.csproj
+RUN dotnet publish MyBot/12/12.csproj -c Release -o /app/publish
 
 FROM base AS final
 WORKDIR /app
 COPY --from=build /app/publish .
-ENTRYPOINT ["dotnet", "MyApi.dll"]
+ENTRYPOINT ["dotnet", "12.dll"]
