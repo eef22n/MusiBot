@@ -17,7 +17,8 @@ namespace MyBot
     {
         private readonly TelegramBotClient _botClient;
         private readonly HttpClient _httpClient;
-        private readonly string _apiBaseUrl = "https://localhost:50172";
+        //private readonly string _apiBaseUrl = "https://localhost:8080";
+
         private readonly Dictionary<long, List<(string Id, string Name)>> _userPlaylists = new();
         private readonly Dictionary<long, string> _userAddTrackPlaylist = new();
         private readonly Dictionary<long, bool> _userCreatePlaylistState = new();

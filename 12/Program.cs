@@ -23,4 +23,5 @@ if (app.Environment.IsDevelopment())
 app.UseHttpsRedirection();
 app.UseAuthorization();
 app.MapControllers();
+app.MapGet("/", () => "Spotify Telegram Bot API is running.");
 app.Run();
