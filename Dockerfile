@@ -1,14 +1,21 @@
-FROM mcr.microsoft.com/dotnet/aspnet:8.0 AS base
-WORKDIR /app
-EXPOSE 80
-
 FROM mcr.microsoft.com/dotnet/sdk:8.0 AS build
 WORKDIR /src
 COPY . .
-RUN dotnet restore 12/MyApi.csproj
-RUN dotnet publish 12/MyApi.csproj -c Release -o /app/publish
 
-FROM base AS final
+# build API
+WORKDIR /src/12
+RUN dotnet publish MyApi.csproj -c Release -o /app/api
+
+# build Bot
+WORKDIR /src/MyBot
+RUN dotnet publish -c Release -o /app/bot
+
+# --------------------
+
+FROM mcr.microsoft.com/dotnet/runtime:8.0 AS final
 WORKDIR /app
-COPY --from=build /app/publish .
-ENTRYPOINT ["dotnet", "MyApi.dll"]
+COPY --from=build /app/api ./api
+COPY --from=build /app/bot ./bot
+
+# запуск обох процесів одночасно
+CMD ["sh", "-c", "dotnet api/MyApi.dll & dotnet bot/MyBot.dll"]
